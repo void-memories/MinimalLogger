@@ -3,10 +3,7 @@ import android.util.Log
 import com.voidmemories.minimal_logger_android.R
 import com.voidmemories.minimal_logger_android.utils.LOG_TAG
 import com.voidmemories.minimal_logger_android.utils.SDK_FOLDER_NAME
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.File
 
@@ -26,22 +23,25 @@ class MainController {
         application = applicationContext
         if (!createInternalStorageDirectory()) return false
 
-        val result = RemoteConfigRepository().fetchRemoteConfig(idHash)
-        return when {
-            result.isSuccess -> {
-                remoteConfig = result.getOrThrow()
-                logRepository = LogRepository(application, remoteConfig)
-                isInitialized = true
-                true
-            }
-            else -> {
-                Log.e(
-                    LOG_TAG,
-                    "Failed to fetch remote configuration: ${result.exceptionOrNull()?.message}"
-                )
-                false
+        return runBlocking {
+            val result = RemoteConfigRepository(application).fetchRemoteConfig(idHash)
+            return@runBlocking when {
+                result.isSuccess -> {
+                    remoteConfig = result.getOrThrow()
+                    logRepository = LogRepository(application, remoteConfig)
+                    isInitialized = true
+                    true
+                }
+                else -> {
+                    Log.e(
+                        LOG_TAG,
+                        "Failed to fetch remote configuration: ${result.exceptionOrNull()?.message}"
+                    )
+                    false
+                }
             }
         }
+
     }
 
     fun log(logType: LogType, message: String) {
