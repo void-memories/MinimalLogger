@@ -1,17 +1,17 @@
 import android.app.Application
 
 class LogRepository(application: Application, private val remoteConfig: RemoteConfig) {
-    private val localDataSource = LocalDataSource(application)
-    private val remoteDataSource = RemoteDataSource()
+    private val logFileManager = LogFileManager(application)
+    private val httpConnectionManager = HttpConnectionManager()
 
-    fun shouldUploadLogs() = localDataSource.shouldUploadLogs(remoteConfig)
+    fun shouldUploadLogs() = logFileManager.shouldUploadLogs(remoteConfig)
 
     fun uploadLogs(): Boolean {
-        val body = localDataSource.combineFilesToByteArray().toString()
-        return remoteDataSource.sendRequest("POST", remoteConfig.logDumpUrl, body) != null
+        val body = logFileManager.combineFilesToByteArray().toString()
+        return httpConnectionManager.sendRequest("POST", remoteConfig.logDumpUrl, body) != null
     }
 
-    fun writeLogToFile(logLine: String) = localDataSource.writeLogToFile(logLine)
+    fun writeLogToFile(logLine: String) = logFileManager.writeLogToFile(logLine)
 
-    fun deleteLoggerQueueFiles() = localDataSource.deleteLoggerQueueFiles()
+    fun deleteLoggerQueueFiles() = logFileManager.deleteLoggerQueueFiles()
 }

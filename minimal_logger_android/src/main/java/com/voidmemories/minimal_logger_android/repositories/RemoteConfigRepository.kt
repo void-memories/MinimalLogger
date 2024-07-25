@@ -1,7 +1,7 @@
 import java.io.IOException
 
 class RemoteConfigRepository {
-    private val remoteDataSource = RemoteDataSource()
+    private val remoteDataSource = HttpConnectionManager()
 
     fun fetchRemoteConfig(idHash: String): Result<RemoteConfig> {
         return runCatching {

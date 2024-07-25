@@ -5,7 +5,7 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
-class RemoteDataSource {
+class HttpConnectionManager {
     fun sendRequest(method: String, urlString: String, jsonBody: String? = null): String? {
         var connection: HttpURLConnection? = null
 

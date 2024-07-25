@@ -6,7 +6,7 @@ import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 
-class LocalDataSource(private val application: Application) {
+class LogFileManager(private val application: Application) {
     private val latestLogFileName = "m_logger_latest.txt"
     private val logDir: File = File(application.filesDir, SDK_FOLDER_NAME)
     private val latestLogFile = File(logDir, latestLogFileName)
