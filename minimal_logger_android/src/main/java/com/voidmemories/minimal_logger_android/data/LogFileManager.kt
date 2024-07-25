@@ -1,5 +1,6 @@
 import android.app.Application
 import android.util.Log
+import com.voidmemories.minimal_logger_android.utils.LATEST_LOG_FILE_BASE_NAME
 import com.voidmemories.minimal_logger_android.utils.QUEUED_LOG_FILE_BASE_NAME
 import com.voidmemories.minimal_logger_android.utils.SDK_FOLDER_NAME
 import java.io.File
@@ -7,9 +8,8 @@ import java.io.FileWriter
 import java.io.IOException
 
 class LogFileManager(private val application: Application) {
-    private val latestLogFileName = "m_logger_latest.txt"
     private val logDir: File = File(application.filesDir, SDK_FOLDER_NAME)
-    private val latestLogFile = File(logDir, latestLogFileName)
+    private val latestLogFile = File(logDir, LATEST_LOG_FILE_BASE_NAME)
 
     init {
         if (!logDir.exists()) {
