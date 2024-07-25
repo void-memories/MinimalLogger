@@ -1,7 +1,15 @@
+import java.io.IOException
+
 class RemoteConfigRepository {
-    val remoteDataSource = RemoteDataSource()
-    fun fetchRemoteConfig(idHash: String): RemoteConfig {
-        //TODO: get remote config url
-        val response = remoteDataSource.sendRequest("GET", "?idHash=$idHash")
+    private val remoteDataSource = RemoteDataSource()
+
+    fun fetchRemoteConfig(idHash: String): Result<RemoteConfig> {
+        return runCatching {
+            val response = remoteDataSource.sendRequest("GET", "?idHash=$idHash")
+                ?: throw IOException("Response is null or invalid")
+
+            RemoteConfig.parseRemoteConfig(response)
+                ?: throw IOException("Error parsing JSON response")
+        }
     }
 }

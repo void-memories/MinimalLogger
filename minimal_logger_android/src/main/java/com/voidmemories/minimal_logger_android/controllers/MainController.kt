@@ -17,25 +17,31 @@ class MainController {
     private lateinit var application: Application
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-     fun initialize(applicationContext: Application, idHash: String):Boolean {
+    fun initialize(applicationContext: Application, idHash: String): Boolean {
         if (isInitialized) {
-            Log.e(LOG_TAG, application.getString(R.string.error_initialized))
-            return false
-        }
-
-        if (!createInternalStorageDirectory()) {
-            Log.e(LOG_TAG, "Failed to create internal storage directory")
+            Log.e(LOG_TAG, applicationContext.getString(R.string.error_initialized))
             return false
         }
 
         application = applicationContext
-        val remoteConfigRepository = RemoteConfigRepository()
-        remoteConfig = remoteConfigRepository.fetchRemoteConfig(idHash)
-        logRepository = LogRepository(application, remoteConfig)
+        if (!createInternalStorageDirectory()) return false
 
-        isInitialized = true
-
-         return true
+        val result = RemoteConfigRepository().fetchRemoteConfig(idHash)
+        return when {
+            result.isSuccess -> {
+                remoteConfig = result.getOrThrow()
+                logRepository = LogRepository(application, remoteConfig)
+                isInitialized = true
+                true
+            }
+            else -> {
+                Log.e(
+                    LOG_TAG,
+                    "Failed to fetch remote configuration: ${result.exceptionOrNull()?.message}"
+                )
+                false
+            }
+        }
     }
 
     fun log(logType: LogType, message: String) {
@@ -45,24 +51,26 @@ class MainController {
         }
 
         when (logType) {
+            LogType.INFO -> Log.i(LOG_TAG, message)
             LogType.ERROR -> Log.e(LOG_TAG, message)
             LogType.DEBUG -> Log.d(LOG_TAG, message)
             LogType.VERBOSE -> Log.v(LOG_TAG, message)
-            else -> Log.i(LOG_TAG, message)
+            LogType.EVENT -> Log.i(
+                LOG_TAG,
+                "EVENT: $message"
+            )
         }
 
         processLog(logType, message)
     }
 
-    fun log(logType: LogType, payload: Map<String, Any>) {
+    fun log(logType: LogType, payload: Map<String, Any>) =
         log(logType, JSONObject(payload).toString())
-    }
 
     private fun processLog(logType: LogType, message: String) {
         coroutineScope.launch {
             try {
                 logRepository.writeLogToFile(createLogLine(logType, message))
-
                 if (logRepository.shouldUploadLogs() && logRepository.uploadLogs()) {
                     logRepository.deleteLoggerQueueFiles()
                 }
@@ -72,23 +80,17 @@ class MainController {
         }
     }
 
-    private fun createLogLine(logType: LogType, message: String): String {
-        return "${System.currentTimeMillis()} | $logType | $message"
-    }
+    private fun createLogLine(logType: LogType, message: String) =
+        "${System.currentTimeMillis()} | $logType | $message"
 
     private fun createInternalStorageDirectory(): Boolean {
         val directory = File(application.filesDir, SDK_FOLDER_NAME)
-        return if (!directory.exists()) {
-            if (directory.mkdir()) {
-                Log.d(LOG_TAG, "Directory created successfully")
-                true
-            } else {
-                Log.e(LOG_TAG, "Failed to create directory")
-                false
-            }
-        } else {
-            Log.d(LOG_TAG, "Directory already exists")
+        return if (!directory.exists() && directory.mkdir()) {
+            Log.d(LOG_TAG, "Directory created successfully")
             true
+        } else {
+            Log.d(LOG_TAG, "Directory already exists or failed to create")
+            false
         }
     }
 }
