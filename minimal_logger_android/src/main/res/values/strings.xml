@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_uninitialized">Minimal Logger Not Initialized</string>
+    <string name="error_initialized">Minimal Logger Is Already Initialized</string>
+    <string name="tag_minimal_logger">Minimal Logger</string>
+</resources>
