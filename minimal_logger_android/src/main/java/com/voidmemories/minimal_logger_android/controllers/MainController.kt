@@ -5,6 +5,7 @@ import com.voidmemories.minimal_logger_android.utils.LOG_TAG
 import com.voidmemories.minimal_logger_android.utils.SDK_FOLDER_NAME
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
@@ -12,38 +13,34 @@ import java.io.File
 class MainController {
     private var isInitialized = false
     private lateinit var remoteConfig: RemoteConfig
-    private lateinit var application: Application
     private lateinit var logRepository: LogRepository
+    private lateinit var application: Application
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    fun initialize(idHash: String, applicationContext: Application): Boolean {
+     fun initialize(applicationContext: Application, idHash: String):Boolean {
         if (isInitialized) {
-            Log.e(
-                LOG_TAG,
-                application.getString(R.string.error_initialized)
-            )
-        } else {
-            application = applicationContext
-            if (!createInternalStorageDirectory()) {
-                return false
-            }
-
-            val remoteConfigRepository = RemoteConfigRepository()
-            remoteConfig = remoteConfigRepository.fetchRemoteConfig(idHash)
-            logRepository = LogRepository(application, remoteConfig)
-
-            //make a static log with metadata
-            return true
+            Log.e(LOG_TAG, application.getString(R.string.error_initialized))
+            return false
         }
 
-        return false
+        if (!createInternalStorageDirectory()) {
+            Log.e(LOG_TAG, "Failed to create internal storage directory")
+            return false
+        }
+
+        application = applicationContext
+        val remoteConfigRepository = RemoteConfigRepository()
+        remoteConfig = remoteConfigRepository.fetchRemoteConfig(idHash)
+        logRepository = LogRepository(application, remoteConfig)
+
+        isInitialized = true
+
+         return true
     }
 
     fun log(logType: LogType, message: String) {
         if (!isInitialized) {
-            Log.e(
-                LOG_TAG,
-                application.getString(R.string.error_uninitialized)
-            )
+            Log.e(LOG_TAG, application.getString(R.string.error_uninitialized))
             return
         }
 
@@ -62,12 +59,15 @@ class MainController {
     }
 
     private fun processLog(logType: LogType, message: String) {
-        //TODO: handle scope life
-        CoroutineScope(Dispatchers.IO).launch {
-            logRepository.writeLogToFile(createLogLine(logType, message))
+        coroutineScope.launch {
+            try {
+                logRepository.writeLogToFile(createLogLine(logType, message))
 
-            if (logRepository.shouldUploadLogs() && logRepository.uploadLogs()) {
-                logRepository.deleteLoggerQueueFiles()
+                if (logRepository.shouldUploadLogs() && logRepository.uploadLogs()) {
+                    logRepository.deleteLoggerQueueFiles()
+                }
+            } catch (e: Exception) {
+                Log.e(LOG_TAG, "Error processing log: ${e.message}", e)
             }
         }
     }
@@ -78,17 +78,17 @@ class MainController {
 
     private fun createInternalStorageDirectory(): Boolean {
         val directory = File(application.filesDir, SDK_FOLDER_NAME)
-
-        if (!directory.exists()) {
-            val success = directory.mkdir()
-            if (!success) {
+        return if (!directory.exists()) {
+            if (directory.mkdir()) {
+                Log.d(LOG_TAG, "Directory created successfully")
+                true
+            } else {
                 Log.e(LOG_TAG, "Failed to create directory")
-                return false
+                false
             }
         } else {
-            println("Directory already exists")
+            Log.d(LOG_TAG, "Directory already exists")
+            true
         }
-
-        return true
     }
 }

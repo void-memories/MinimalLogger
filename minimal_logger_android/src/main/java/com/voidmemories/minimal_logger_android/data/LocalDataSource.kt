@@ -1,4 +1,5 @@
 import android.app.Application
+import android.util.Log
 import com.voidmemories.minimal_logger_android.utils.QUEUED_LOG_FILE_BASE_NAME
 import com.voidmemories.minimal_logger_android.utils.SDK_FOLDER_NAME
 import java.io.File
@@ -6,24 +7,31 @@ import java.io.FileWriter
 import java.io.IOException
 
 class LocalDataSource(private val application: Application) {
-    val latestLogFileName = "m_logger_latest.txt"
-    val logDir: File = File(application.filesDir, SDK_FOLDER_NAME)
-    val latestLogFile = File(logDir, latestLogFileName)
+    private val latestLogFileName = "m_logger_latest.txt"
+    private val logDir: File = File(application.filesDir, SDK_FOLDER_NAME)
+    private val latestLogFile = File(logDir, latestLogFileName)
+
+    init {
+        if (!logDir.exists()) {
+            logDir.mkdir()
+        }
+    }
 
     fun combineFilesToByteArray(): ByteArray {
         val combinedContent = StringBuilder()
-
         var index = 1
+
         while (true) {
-            val fileName = "m_logger_latest$index"
-            val file = File(application.filesDir, fileName)
+            val fileName = "$QUEUED_LOG_FILE_BASE_NAME$index.txt"
+            val file = File(logDir, fileName)
 
             if (!file.exists()) {
                 break
             }
 
-            val content = file.readText()
-            combinedContent.append(content)
+            file.bufferedReader().use { reader ->
+                combinedContent.append(reader.readText())
+            }
             index++
         }
 
@@ -31,27 +39,13 @@ class LocalDataSource(private val application: Application) {
     }
 
     fun writeLogToFile(log: String) {
-
-        // Get the directory for the minimalLogger folder
-        val logDir: File = File(application.filesDir, SDK_FOLDER_NAME)
-        if (!logDir.exists()) {
-            logDir.mkdir()
-        }
-
-        // Create the latest log file if it doesn't exist
-        val latestLogFile = File(logDir, latestLogFileName)
-        if (!latestLogFile.exists()) {
-            latestLogFile.createNewFile()
-        }
-
-        // Append text to the latest log file
         try {
-            FileWriter(latestLogFile, true).use { writer ->
+            FileWriter(latestLogFile, true).buffered().use { writer ->
                 writer.append(log)
+                writer.newLine()  // Ensure logs are written on separate lines
             }
         } catch (e: IOException) {
-            e.printStackTrace()
-            return
+            Log.e("LocalDataSource", "Failed to write log to file: ${e.message}", e)
         }
     }
 
@@ -60,36 +54,29 @@ class LocalDataSource(private val application: Application) {
             var queueFileIndex = 0
             var queueFile: File
 
-            // Find the next available queue file name
+            //converting to _queued file type
             do {
-                queueFile = File(
-                    logDir,
+                val fileName =
                     "$QUEUED_LOG_FILE_BASE_NAME${if (queueFileIndex > 0) "_$queueFileIndex" else ""}.txt"
-                )
+                queueFile = File(logDir, fileName)
                 queueFileIndex++
             } while (queueFile.exists())
 
-            latestLogFile.renameTo(queueFile)
-
-            return true
+            return latestLogFile.renameTo(queueFile)
         }
-
         return false
     }
 
     fun deleteLoggerQueueFiles() {
-        val directory = application.filesDir
+        val files = logDir.listFiles()
 
-        val files = directory.listFiles()
-
-        files?.forEach { file ->
-            if (file.name.startsWith(QUEUED_LOG_FILE_BASE_NAME) && file.name.endsWith(".txt")) {
-                val deleted = file.delete()
-                if (deleted) {
-                    println("Deleted: ${file.name}")
-                } else {
-                    println("Failed to delete: ${file.name}")
-                }
+        files?.filter {
+            it.name.startsWith(QUEUED_LOG_FILE_BASE_NAME) && it.name.endsWith(".txt")
+        }?.forEach { file ->
+            if (file.delete()) {
+                Log.d("LocalDataSource", "Deleted: ${file.name}")
+            } else {
+                Log.e("LocalDataSource", "Failed to delete: ${file.name}")
             }
         }
     }
